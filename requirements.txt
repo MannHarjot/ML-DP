@@ -3,6 +3,7 @@ pandas
 scikit-learn
 matplotlib
 streamlit
+altair<5
 joblib
 fastapi
 uvicorn
