@@ -32,11 +32,8 @@ def load_model_bundle(path: Path):
     return load_bundle(str(path))
 
 
-def bootstrap_demo_models() -> None:
-    if BASELINE_BUNDLE_PATH.exists() and DP_BUNDLE_PATH.exists():
-        return
-
-    demo_df = pd.DataFrame(
+def get_demo_dataframe() -> pd.DataFrame:
+    return pd.DataFrame(
         [
             [45, 28.1, 140, 82, 130, "low", "yes", 1],
             [34, 22.4, 95, 76, 80, "high", "no", 0],
@@ -70,6 +67,13 @@ def bootstrap_demo_models() -> None:
             "outcome",
         ],
     )
+
+
+def bootstrap_demo_models() -> None:
+    if BASELINE_BUNDLE_PATH.exists() and DP_BUNDLE_PATH.exists():
+        return
+
+    demo_df = get_demo_dataframe()
 
     X_train, X_test, y_train, y_test = split_features_target(
         demo_df, "outcome", test_size=0.25, random_state=42
@@ -130,6 +134,43 @@ def bootstrap_demo_models() -> None:
     )
 
 
+@st.cache_resource
+def build_dp_bundle_for_epsilon(epsilon: float) -> Dict[str, Any]:
+    demo_df = get_demo_dataframe()
+    X_train, X_test, y_train, y_test = split_features_target(
+        demo_df, "outcome", test_size=0.25, random_state=42
+    )
+    preprocessor = build_preprocessor(X_train)
+    X_train_t = preprocessor.fit_transform(X_train)
+    X_test_t = preprocessor.transform(X_test)
+
+    dp_model = DPLogisticRegression(
+        epsilon=epsilon,
+        delta=1e-5,
+        learning_rate=0.05,
+        epochs=35,
+        batch_size=8,
+        random_state=42,
+    )
+    dp_model.fit(X_train_t, y_train.to_numpy())
+
+    d_prob = dp_model.predict_proba(X_test_t)[:, 1]
+    d_pred = (d_prob >= 0.5).astype(int)
+    dp_metrics = evaluate_binary(y_test.to_numpy(), d_pred, d_prob)
+
+    return {
+        "model_type": "dp_logreg",
+        "model": dp_model,
+        "preprocessor": preprocessor,
+        "target_col": "outcome",
+        "feature_cols": X_train.columns.tolist(),
+        "positive_label": "1",
+        "classes": sorted([str(c) for c in np.unique(y_train)]),
+        "privacy": {"epsilon": epsilon, "delta": 1e-5, "epochs": 35, "batch_size": 8},
+        "metrics": dp_metrics,
+    }
+
+
 def extract_schema(bundle: Dict[str, Any]) -> Tuple[List[str], List[str], Dict[str, List[str]]]:
     pre = bundle["preprocessor"]
     feature_cols = bundle["feature_cols"]
@@ -188,10 +229,23 @@ def main():
         "`Prediction = 1` means higher diabetes risk, `Prediction = 0` means lower diabetes risk. "
         "Risk score is the estimated probability of higher risk."
     )
+    st.caption(
+        "This demo uses models trained in the backend from a built-in sample dataset to provide instant, "
+        "click-to-run portfolio interaction."
+    )
 
     bootstrap_demo_models()
     baseline_bundle = load_model_bundle(BASELINE_BUNDLE_PATH)
-    dp_bundle = load_model_bundle(DP_BUNDLE_PATH)
+    epsilon = st.slider(
+        "DP Privacy Budget (epsilon): lower = stronger privacy, higher = better utility",
+        min_value=0.1,
+        max_value=10.0,
+        value=2.0,
+        step=0.1,
+    )
+    dp_bundle = build_dp_bundle_for_epsilon(float(epsilon))
+    if dp_bundle is None:
+        dp_bundle = load_model_bundle(DP_BUNDLE_PATH)
 
     if baseline_bundle is None and dp_bundle is None:
         st.error("No trained model bundles found. Train models first in the terminal.")
