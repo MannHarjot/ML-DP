@@ -183,6 +183,11 @@ def main():
     st.set_page_config(page_title="Healthcare Risk Demo", layout="wide")
     st.title("Privacy-Preserving Healthcare Risk Prediction")
     st.caption("Live demo: compare non-private baseline vs differentially private model")
+    st.info(
+        "Prediction target: **Diabetes risk**. "
+        "`Prediction = 1` means higher diabetes risk, `Prediction = 0` means lower diabetes risk. "
+        "Risk score is the estimated probability of higher risk."
+    )
 
     bootstrap_demo_models()
     baseline_bundle = load_model_bundle(BASELINE_BUNDLE_PATH)
