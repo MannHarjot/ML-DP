@@ -4,3 +4,6 @@ scikit-learn
 matplotlib
 streamlit
 joblib
+fastapi
+uvicorn
+pydantic

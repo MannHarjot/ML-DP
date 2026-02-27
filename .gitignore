@@ -7,7 +7,12 @@ venv/
 
 # VS Code
 .vscode/
+.DS_Store
 
 # Data
 data/*.csv
 data/*.xlsx
+
+# Generated model bundles
+models/baseline_bundle.joblib
+models/dp_bundle.joblib
