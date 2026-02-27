@@ -1,19 +1,34 @@
 # Privacy-Preserving Healthcare Machine Learning System
 
-## What This Project Is About
-This project builds a healthcare risk prediction system that protects patient privacy while still providing useful machine learning predictions. It includes:
-- A standard baseline model for comparison
-- A differentially private (DP) model for privacy-preserving training
-- A simple frontend demo and API for risk prediction
+## What The Project Is About
+This project is an end-to-end healthcare ML system that predicts **diabetes risk** while protecting sensitive patient data. It includes model training, privacy evaluation, API serving, and an interactive frontend demo.
 
-## What Problem This Solves
-Healthcare data is highly sensitive and can leak through datasets or model behavior. This project addresses that risk by:
-- Training with differential privacy to reduce memorization of individual records
-- Measuring privacy leakage risk using a membership inference evaluation
-- Demonstrating the trade-off between model utility and privacy in a practical workflow
+## What Problem It Solves
+Healthcare organizations need ML predictions, but patient data is highly sensitive. Standard ML pipelines can leak private information through stored datasets or model behavior. This creates privacy, security, and compliance risks.
+
+## Solution Used
+We use **Differential Privacy (DP)** in model training to reduce the chance that individual patient records can be inferred from the model.
+
+The system includes:
+- A **baseline model** (non-private) for utility comparison
+- A **DP model** (DP-SGD style: gradient clipping + noise)
+- A simple **membership inference risk evaluation** to compare leakage risk
+- A frontend where users can adjust **epsilon** and observe privacy/utility trade-offs
+
+## What We Used To Build It
+- Python 3.x
+- numpy
+- pandas
+- scikit-learn
+- matplotlib
+- streamlit
+- fastapi
+- uvicorn
+- pydantic
+- joblib
 
 ## How To Run Locally
-From the project root:
+From project root:
 
 ```bash
 python3 -m venv venv
@@ -40,17 +55,3 @@ Run API:
 ```bash
 MODEL_BUNDLE=models/dp_bundle.joblib uvicorn api.server:app --reload
 ```
-
-## Requirements Used To Build This Project
-- Python 3.x
-- numpy
-- pandas
-- scikit-learn
-- matplotlib
-- streamlit
-- joblib
-- fastapi
-- uvicorn
-- pydantic
-
-(Install all with `pip install -r requirements.txt`.)
