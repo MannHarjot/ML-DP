@@ -1,5 +1,7 @@
 # Privacy-Preserving Healthcare Machine Learning System
 
+## Live Demo
+https://privacy-health-ml.streamlit.app/
 ## What The Project Is About
 This project is an end-to-end healthcare ML system that predicts **diabetes risk** while protecting sensitive patient data. It includes model training, privacy evaluation, API serving, and an interactive frontend demo.
 
