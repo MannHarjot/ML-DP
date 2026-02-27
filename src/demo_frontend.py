@@ -5,12 +5,20 @@ from typing import Any, Dict, List, Tuple
 import numpy as np
 import pandas as pd
 import streamlit as st
+from sklearn.linear_model import LogisticRegression
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from src.ml_utils import load_bundle
+from src.dp_logistic import DPLogisticRegression
+from src.ml_utils import (
+    build_preprocessor,
+    evaluate_binary,
+    load_bundle,
+    save_bundle,
+    split_features_target,
+)
 
 
 BASELINE_BUNDLE_PATH = ROOT_DIR / "models" / "baseline_bundle.joblib"
@@ -22,6 +30,104 @@ def load_model_bundle(path: Path):
     if not path.exists():
         return None
     return load_bundle(str(path))
+
+
+def bootstrap_demo_models() -> None:
+    if BASELINE_BUNDLE_PATH.exists() and DP_BUNDLE_PATH.exists():
+        return
+
+    demo_df = pd.DataFrame(
+        [
+            [45, 28.1, 140, 82, 130, "low", "yes", 1],
+            [34, 22.4, 95, 76, 80, "high", "no", 0],
+            [52, 31.7, 168, 88, 160, "low", "yes", 1],
+            [29, 24.2, 101, 72, 85, "medium", "no", 0],
+            [61, 33.5, 182, 92, 190, "low", "yes", 1],
+            [40, 27.0, 120, 80, 110, "medium", "yes", 0],
+            [55, 30.2, 150, 86, 145, "low", "yes", 1],
+            [31, 23.8, 98, 74, 78, "high", "no", 0],
+            [48, 29.5, 142, 84, 135, "medium", "yes", 1],
+            [27, 21.9, 90, 70, 70, "high", "no", 0],
+            [58, 34.1, 176, 90, 175, "low", "yes", 1],
+            [36, 25.1, 108, 78, 95, "medium", "no", 0],
+            [50, 30.8, 160, 87, 155, "low", "yes", 1],
+            [33, 24.0, 99, 73, 82, "high", "no", 0],
+            [62, 35.0, 188, 94, 200, "low", "yes", 1],
+            [39, 26.5, 116, 79, 105, "medium", "no", 0],
+            [47, 28.9, 146, 83, 138, "medium", "yes", 1],
+            [30, 22.7, 93, 71, 75, "high", "no", 0],
+            [56, 32.4, 170, 89, 168, "low", "yes", 1],
+            [35, 24.8, 104, 77, 90, "medium", "no", 0],
+        ],
+        columns=[
+            "age",
+            "bmi",
+            "glucose",
+            "blood_pressure",
+            "insulin",
+            "activity_level",
+            "family_history",
+            "outcome",
+        ],
+    )
+
+    X_train, X_test, y_train, y_test = split_features_target(
+        demo_df, "outcome", test_size=0.25, random_state=42
+    )
+    preprocessor = build_preprocessor(X_train)
+    X_train_t = preprocessor.fit_transform(X_train)
+    X_test_t = preprocessor.transform(X_test)
+
+    baseline_model = LogisticRegression(max_iter=1000)
+    baseline_model.fit(X_train_t, y_train.to_numpy())
+    b_prob = baseline_model.predict_proba(X_test_t)[:, 1]
+    b_pred = (b_prob >= 0.5).astype(int)
+    baseline_metrics = evaluate_binary(y_test.to_numpy(), b_pred, b_prob)
+
+    dp_model = DPLogisticRegression(
+        epsilon=2.0,
+        delta=1e-5,
+        learning_rate=0.05,
+        epochs=35,
+        batch_size=8,
+        random_state=42,
+    )
+    dp_model.fit(X_train_t, y_train.to_numpy())
+    d_prob = dp_model.predict_proba(X_test_t)[:, 1]
+    d_pred = (d_prob >= 0.5).astype(int)
+    dp_metrics = evaluate_binary(y_test.to_numpy(), d_pred, d_prob)
+
+    feature_cols = X_train.columns.tolist()
+    classes = sorted([str(c) for c in np.unique(y_train)])
+
+    save_bundle(
+        str(BASELINE_BUNDLE_PATH),
+        {
+            "model_type": "baseline_logreg",
+            "model": baseline_model,
+            "preprocessor": preprocessor,
+            "target_col": "outcome",
+            "feature_cols": feature_cols,
+            "positive_label": "1",
+            "classes": classes,
+            "metrics": baseline_metrics,
+        },
+    )
+
+    save_bundle(
+        str(DP_BUNDLE_PATH),
+        {
+            "model_type": "dp_logreg",
+            "model": dp_model,
+            "preprocessor": preprocessor,
+            "target_col": "outcome",
+            "feature_cols": feature_cols,
+            "positive_label": "1",
+            "classes": classes,
+            "privacy": {"epsilon": 2.0, "delta": 1e-5, "epochs": 35, "batch_size": 8},
+            "metrics": dp_metrics,
+        },
+    )
 
 
 def extract_schema(bundle: Dict[str, Any]) -> Tuple[List[str], List[str], Dict[str, List[str]]]:
@@ -78,6 +184,7 @@ def main():
     st.title("Privacy-Preserving Healthcare Risk Prediction")
     st.caption("Live demo: compare non-private baseline vs differentially private model")
 
+    bootstrap_demo_models()
     baseline_bundle = load_model_bundle(BASELINE_BUNDLE_PATH)
     dp_bundle = load_model_bundle(DP_BUNDLE_PATH)
 
