@@ -2,8 +2,8 @@ numpy
 pandas
 scikit-learn
 matplotlib
-streamlit
-altair<5
+streamlit>=1.41,<2
+altair>=5,<6
 joblib
 fastapi
 uvicorn
